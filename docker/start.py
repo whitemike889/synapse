@@ -59,7 +59,7 @@ else:
         if not os.path.exists("/compiled"): os.mkdir("/compiled")
 
         config_path = "/compiled/homeserver.yaml"
-        
+
         # Convert SYNAPSE_NO_TLS to boolean if exists
         if "SYNAPSE_NO_TLS" in environ:
             tlsanswerstring = str.lower(environ["SYNAPSE_NO_TLS"])

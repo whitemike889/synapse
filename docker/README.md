@@ -39,13 +39,14 @@ docker run \
 
 The image expects a single volume, located at ``/data``, that will hold:
 
+* the homeserver.yaml config file;
 * temporary files during uploads;
 * uploaded media and thumbnails;
 * the SQLite database if you do not configure postgres;
 * the appservices configuration.
 
 You are free to use separate volumes depending on storage endpoints at your
-disposal. For instance, ``/data/media`` coud be stored on a large but low
+disposal. For instance, ``/data/media`` could be stored on a large but low
 performance hdd storage while other files could be stored on high performance
 endpoints.
 
@@ -76,7 +77,20 @@ If you don't do any of these, Synapse will fail to start with an error similar t
 
     synapse.config._base.ConfigError: Error accessing file '/data/<server_name>.tls.crt' (config for tls_certificate): No such file or directory
 
-## Environment
+## Environment (deprecated)
+
+Using environment variables to configure Synapse is **deprecated**. We highly
+recommend using a mounted configuration file instead.
+
+The reason for this is that Synapse has a large number of configuration options,
+many of which interact in non-trivial ways. Having only some options exposed via
+environment variables has led to confusion and causing most users to end up
+requiring a configuration file anyway. Therefore configuring using environment
+variables will remain deprecated unless we can automatically generate
+environment variables for all configuration options.
+
+The following is documentation for the **deprecated** environment variables, for
+reference:
 
 Unless you specify a custom path for the configuration file, a very generic
 file will be generated, based on the following environment settings.
