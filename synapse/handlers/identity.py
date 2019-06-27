@@ -182,6 +182,7 @@ class IdentityHandler(BaseHandler):
                 medium=threepid["medium"],
                 address=threepid["address"],
             )
+            logger.info("Got a list of IS from the database: %s" % id_servers)
 
         # We don't know where to unbind, so we don't have a choice but to return
         if not id_servers:
@@ -189,6 +190,7 @@ class IdentityHandler(BaseHandler):
 
         changed = True
         for id_server in id_servers:
+            logger.info("Trying to unbind 3PID %s for MXID %s on IS %s" % (threepid, mxid, id_server))
             changed &= yield self.try_unbind_threepid_with_id_server(
                 mxid, threepid, id_server,
             )
@@ -230,6 +232,7 @@ class IdentityHandler(BaseHandler):
             content=content,
             destination_is=id_server,
         )
+        logger.info("Built auth header for unbind request: %s" % auth_headers)
         headers = {
             b"Authorization": auth_headers,
         }
@@ -240,9 +243,12 @@ class IdentityHandler(BaseHandler):
         # Note that destination_is has to be the real id_server, not
         # the server we connect to.
         if id_server in self.rewrite_identity_server_urls:
+            logger.info("Rewriting IS URL from %s to %s" % (id_server, self.rewrite_identity_server_urls[id_server]))
             id_server = self.rewrite_identity_server_urls[id_server]
 
         url = "https://%s/_matrix/identity/api/v1/3pid/unbind" % (id_server,)
+
+        logger.info("Sending unbind request to %s" % url)
 
         try:
             yield self.http_client.post_json_get_json(
@@ -259,6 +265,8 @@ class IdentityHandler(BaseHandler):
             else:
                 logger.error("Failed to unbind threepid on identity server: %s", e)
                 raise SynapseError(502, "Failed to contact identity server")
+
+        logger.info("Unbound 3PID %s on IS" % threepid)
 
         yield self.store.remove_user_bound_threepid(
             user_id=mxid,
