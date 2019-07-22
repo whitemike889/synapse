@@ -61,9 +61,9 @@ class EndToEndKeyWorkerStore(SQLBaseStore):
                 # add cross-signing signatures to the keys
                 if "signatures" in device_info:
                     for sig_user_id, sigs in device_info["signatures"].items():
-                        device_info["keys"].setdefault("signatures", {}) \
-                                           .setdefault(sig_user_id, {}) \
-                                           .update(sigs)
+                        device_info["keys"].setdefault("signatures", {}).setdefault(
+                            sig_user_id, {}
+                        ).update(sigs)
 
         defer.returnValue(results)
 
@@ -127,12 +127,8 @@ class EndToEndKeyWorkerStore(SQLBaseStore):
 
         # get signatures on the device
         signature_sql = (
-            "SELECT * "
-            "  FROM e2e_cross_signing_signatures "
-            " WHERE %s"
-        ) % (
-            " OR ".join("(" + q + ")" for q in signature_query_clauses)
-        )
+            "SELECT * " "  FROM e2e_cross_signing_signatures " " WHERE %s"
+        ) % (" OR ".join("(" + q + ")" for q in signature_query_clauses))
 
         txn.execute(signature_sql, signature_query_params)
         rows = self.cursor_to_dict(txn)
@@ -140,12 +136,10 @@ class EndToEndKeyWorkerStore(SQLBaseStore):
         for row in rows:
             target_user_id = row["target_user_id"]
             target_device_id = row["target_device_id"]
-            if target_user_id in result \
-               and target_device_id in result[target_user_id]:
-                result[target_user_id][target_device_id] \
-                    .setdefault("signatures", {}) \
-                    .setdefault(row["user_id"], {})[row["key_id"]] \
-                    = row["signature"]
+            if target_user_id in result and target_device_id in result[target_user_id]:
+                result[target_user_id][target_device_id].setdefault(
+                    "signatures", {}
+                ).setdefault(row["user_id"], {})[row["key_id"]] = row["signature"]
 
         return result
 
