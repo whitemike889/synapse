@@ -433,13 +433,15 @@ class DeviceHandler(DeviceWorkerHandler):
             user_id, "self_signing"
         )
 
-        defer.returnValue({
-            "user_id": user_id,
-            "stream_id": stream_id,
-            "devices": devices,
-            "master_key": master_key,
-            "self_signing_key": self_signing_key
-        })
+        defer.returnValue(
+            {
+                "user_id": user_id,
+                "stream_id": stream_id,
+                "devices": devices,
+                "master_key": master_key,
+                "self_signing_key": self_signing_key,
+            }
+        )
 
     @defer.inlineCallbacks
     def user_left_room(self, user, room_id):

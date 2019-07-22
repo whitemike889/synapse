@@ -53,7 +53,7 @@ class E2eKeysHandler(object):
         federation_registry = hs.get_federation_registry()
 
         federation_registry.register_edu_handler(
-            "m.signing_key_update", self._edu_updater.incoming_signing_key_update,
+            "m.signing_key_update", self._edu_updater.incoming_signing_key_update
         )
         # doesn't really work as part of the generic query API, because the
         # query request requires an object POST, but we abuse the
@@ -306,9 +306,7 @@ class E2eKeysHandler(object):
         """
         device_keys_query = query_body.get("device_keys", {})
         device_keys = yield self.query_local_devices(device_keys_query)
-        ret = {
-            "device_keys": device_keys,
-        }
+        ret = {"device_keys": device_keys}
 
         # add in the cross-signing keys
         cross_signing_keys = yield self.query_cross_signing_keys(device_keys_query)
@@ -979,15 +977,17 @@ class SigningKeyEduUpdater(object):
                     yield self.store.set_e2e_cross_signing_key(
                         user_id, "master", master_key
                     )
-                    device_id = \
-                        get_verify_key_from_cross_signing_key(master_key)[1].version
+                    device_id = get_verify_key_from_cross_signing_key(master_key)[
+                        1
+                    ].version
                     device_ids.append(device_id)
                 if self_signing_key:
                     yield self.store.set_e2e_cross_signing_key(
                         user_id, "self_signing", self_signing_key
                     )
-                    device_id = \
-                        get_verify_key_from_cross_signing_key(self_signing_key)[1].version
+                    device_id = get_verify_key_from_cross_signing_key(self_signing_key)[
+                        1
+                    ].version
                     device_ids.append(device_id)
 
             yield device_handler.notify_device_update(user_id, device_ids)
