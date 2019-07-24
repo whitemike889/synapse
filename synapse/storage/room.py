@@ -638,3 +638,40 @@ class RoomStore(RoomWorkerStore, SearchStore):
                             remote_media_mxcs.append((hostname, media_id))
 
         return local_media_mxcs, remote_media_mxcs
+
+    @defer.inlineCallbacks
+    def get_retention_periods_for_rooms(self):
+
+        def get_retention_periods_for_rooms_txn(txn):
+            sql = (
+                "SELECT s.room_id, e.json FROM current_state_events AS s"
+                " LEFT JOIN event_json AS e ON (s.event_id = e.event_id)"
+                " WHERE s.type = 'im.vector.retention'"
+            )
+
+            txn.execute(sql)
+
+            rows = self.cursor_to_dict(txn)
+
+            rooms = []
+
+            for row in rows:
+                eventJSON = json.loads(row["json"])
+
+                # Ignore invalid events.
+                if "max_lifetime" not in eventJSON.get("content", {}):
+                    continue
+
+                rooms.append({
+                    "room_id": row["room_id"],
+                    "max_lifetime": eventJSON["content"]["max_lifetime"],
+                })
+
+            return rooms
+
+        retention_periods = yield self.runInteraction(
+            "get_rooms_for_retention_period_range",
+            get_retention_periods_for_rooms_txn,
+        )
+
+        defer.returnValue(retention_periods)
