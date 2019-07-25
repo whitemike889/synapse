@@ -286,19 +286,27 @@ class BaseFederationServlet(object):
                 logger.warn("authenticate_request failed: %s", e)
                 raise
 
+            tags = {
+                "request_id": request.get_request_id(),
+                opentracing.tags.SPAN_KIND: opentracing.tags.SPAN_KIND_RPC_SERVER,
+                opentracing.tags.HTTP_METHOD: request.get_method(),
+                opentracing.tags.HTTP_URL: request.get_redacted_uri(),
+                opentracing.tags.PEER_HOST_IPV6: request.getClientIP(),
+                "authenticated_entity": origin,
+            }
+
             # Start an opentracing span
-            with opentracing.start_active_span_from_context(
-                request.requestHeaders,
-                "incoming-federation-request",
-                tags={
-                    "request_id": request.get_request_id(),
-                    opentracing.tags.SPAN_KIND: opentracing.tags.SPAN_KIND_RPC_SERVER,
-                    opentracing.tags.HTTP_METHOD: request.get_method(),
-                    opentracing.tags.HTTP_URL: request.get_redacted_uri(),
-                    opentracing.tags.PEER_HOST_IPV6: request.getClientIP(),
-                    "authenticated_entity": origin,
-                },
-            ):
+            # Only accept the span context if the origin is authenticated
+            # and whitelisted
+            if origin and opentracing.whitelisted_homeserver(origin):
+                scope = opentracing.start_active_span_from_request(
+                    request, "incoming-federation-request", tags=tags
+                )
+            else:
+                scope = opentracing.start_active_span(
+                    "incoming-federation-request", tags=tags
+                )
+            with scope:
                 if origin:
                     with ratelimiter.ratelimit(origin) as d:
                         await d
