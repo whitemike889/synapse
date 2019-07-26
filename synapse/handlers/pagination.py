@@ -20,6 +20,7 @@ from twisted.python.failure import Failure
 
 from synapse.api.constants import EventTypes, Membership
 from synapse.api.errors import SynapseError
+from synapse.config._base import Config
 from synapse.storage.state import StateFilter
 from synapse.types import RoomStreamToken
 from synapse.util.async_helpers import ReadWriteLock
@@ -78,6 +79,71 @@ class PaginationHandler(object):
         # map from purge id to PurgeStatus
         self._purges_by_id = {}
         self._event_serializer = hs.get_event_client_serializer()
+
+        # TODO: Figure out a way to make the intervals configurable.
+        # We're currently running two looping calls for purging old events in rooms:
+        #   * One for the lifetime interval [min_lifetime ; 3d[ running every 12h
+        #   * One for the lifetime interval [3d ; max_lifetime] running every 24h
+        retention_high_interval_min = 72 * 60 * 60
+        retention_low_interval_ms = 12 * 60 * 60 * 1000
+        retention_high_interval_ms = 24 * 60 * 60 * 1000
+
+        self.clock.looping_call(
+            self.purge_history_for_rooms_in_range,
+            retention_low_interval_ms,
+            hs.config.retention_min_lifetime, retention_high_interval_min - 1,
+        )
+        self.clock.looping_call(
+            self.purge_history_for_rooms_in_range,
+            retention_high_interval_ms,
+            retention_high_interval_min, hs.config.retention_max_lifetime,
+        )
+
+    @defer.inlineCallbacks
+    def purge_history_for_rooms_in_range(self, min_s, max_s):
+        retention_in_rooms = yield self.store.get_retention_periods_for_rooms()
+
+        for room in retention_in_rooms:
+            if min_s <= room["max_lifetime"] <= max_s:
+                room_id = room["room_id"]
+                ts = self.clock.time_msec() - (room["max_lifetime"] * 1000)
+
+                stream_ordering = (
+                    yield self.store.find_first_stream_ordering_after_ts(ts)
+                )
+
+                r = (
+                    yield self.store.get_room_event_after_stream_ordering(
+                        room_id, stream_ordering,
+                    )
+                )
+                if not r:
+                    logger.warning(
+                        "[purge] purging events not possible: No event found "
+                        "(ts %i => stream_ordering %i)",
+                        ts, stream_ordering,
+                    )
+
+                (stream, topo, _event_id) = r
+                token = "t%d-%d" % (topo, stream)
+
+                if room_id in self._purges_in_progress_by_room:
+                    logger.warning(
+                        "[purge] not purging room %s as there's an ongoing purge running"
+                        " for this room",
+                        room_id,
+                    )
+                    continue
+
+                purge_id = random_string(16)
+
+                logger.info("Starting purging events in room %s", room_id)
+
+                # We want to purge everything, including local events.
+                run_in_background(
+                    self._purge_history,
+                    purge_id, room_id, token, True,
+                )
 
     def start_purge_history(self, room_id, token,
                             delete_local_events=False):
