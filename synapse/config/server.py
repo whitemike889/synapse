@@ -228,6 +228,14 @@ class ServerConfig(Config):
             "show_users_in_user_directory", True,
         )
 
+        retention_config = config.get("retention")
+        self.retention_max_lifetime = self.parse_duration(
+            retention_config.get("max_lifetime", 0),
+        )
+        self.retention_min_lifetime = self.parse_duration(
+            retention_config.get("min_lifetime", 0),
+        )
+
         self.listeners = []
         for listener in config.get("listeners", []):
             if not isinstance(listener.get("port", None), int):
