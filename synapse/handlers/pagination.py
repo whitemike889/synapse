@@ -73,6 +73,7 @@ class PaginationHandler(object):
         self.auth = hs.get_auth()
         self.store = hs.get_datastore()
         self.clock = hs.get_clock()
+        self.config = hs.config
 
         self.pagination_lock = ReadWriteLock()
         self._purges_in_progress_by_room = set()
@@ -80,24 +81,13 @@ class PaginationHandler(object):
         self._purges_by_id = {}
         self._event_serializer = hs.get_event_client_serializer()
 
-        # TODO: Figure out a way to make the intervals configurable.
-        # We're currently running two looping calls for purging old events in rooms:
-        #   * One for the lifetime interval [min_lifetime ; 3d[ running every 12h
-        #   * One for the lifetime interval [3d ; max_lifetime] running every 24h
-        retention_high_interval_min = 72 * 60 * 60
-        retention_low_interval_ms = 12 * 60 * 60 * 1000
-        retention_high_interval_ms = 24 * 60 * 60 * 1000
-
-        self.clock.looping_call(
-            self.purge_history_for_rooms_in_range,
-            retention_low_interval_ms,
-            hs.config.retention_min_lifetime, retention_high_interval_min - 1,
-        )
-        self.clock.looping_call(
-            self.purge_history_for_rooms_in_range,
-            retention_high_interval_ms,
-            retention_high_interval_min, hs.config.retention_max_lifetime,
-        )
+        # Run the purge jobs described in the configuration file.
+        for job in self.config.retention_purge_jobs:
+            self.clock.looping_call(
+                self.purge_history_for_rooms_in_range,
+                job["interval"],
+                job["min_lifetime"], job["max_lifetime"],
+            )
 
     @defer.inlineCallbacks
     def purge_history_for_rooms_in_range(self, min_s, max_s):

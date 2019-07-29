@@ -236,6 +236,71 @@ class ServerConfig(Config):
             retention_config.get("min_lifetime", 0),
         )
 
+        if self.retention_min_lifetime > self.retention_max_lifetime:
+            raise ConfigError(
+                "'min_lifetime' can not be greater than 'max_lifetime'."
+            )
+
+        self.retention_purge_jobs = []
+        # TODO: Document better the job config.
+        for purge_job_config in retention_config.get("purge_jobs", []):
+            interval_config = purge_job_config.get("interval", None)
+
+            if purge_job_config.get("interval", None) is None:
+                raise ConfigError(
+                    (
+                        "A retention policy's purge jobs configuration must have the"
+                        "'interval' key set."
+                    )
+                )
+
+            interval = self.parse_duration(interval_config)
+
+            min_lifetime = self.parse_duration(
+                purge_job_config.get("min_lifetime", self.retention_min_lifetime),
+            )
+
+            max_lifetime = self.parse_duration(
+                purge_job_config.get("max_lifetime", self.retention_max_lifetime),
+            )
+
+            if min_lifetime < self.retention_min_lifetime:
+                raise ConfigError(
+                    (
+                        "A retention policy's purge jobs configuration can not have a"
+                        " min_lifetime value that's lower than the global min_lifetime"
+                        " value."
+                    )
+                )
+
+            if max_lifetime > self.retention_max_lifetime:
+                raise ConfigError(
+                    (
+                        "A retention policy's purge jobs configuration can not have a"
+                        " max_lifetime value that's greater than the global max_lifetime"
+                        " value."
+                    )
+                )
+
+            if min_lifetime > max_lifetime:
+                raise ConfigError(
+                    "A retention policy's purge jobs configuration's 'min_lifetime' can"
+                    " not be greater than its 'max_lifetime'."
+                )
+
+            self.retention_purge_jobs.append({
+                "interval": interval,
+                "min_lifetime": min_lifetime,
+                "max_lifetime": max_lifetime,
+            })
+
+        if not self.retention_purge_jobs:
+            self.retention_purge_jobs = [{
+                "interval": self.parse_duration("1d"),
+                "min_lifetime": self.retention_min_lifetime,
+                "max_lifetime": self.retention_max_lifetime,
+            }]
+
         self.listeners = []
         for listener in config.get("listeners", []):
             if not isinstance(listener.get("port", None), int):
@@ -674,6 +739,25 @@ class ServerConfig(Config):
         # 'true'.
         #
         #show_users_in_user_directory: false
+
+        # Message retention policy at the server level.
+        #
+        # Room admins and mods can define a retention period for their rooms using the
+        # 'im.vector.room.retention' state event, and server admins can cap this period
+        # by setting the 'min_lifetime' and 'max_lifetime' config options.
+        #
+        # Server admins can also define the settings of the background jobs purging the
+        # events which lifetime has expired under the 'purge_jobs' section.
+        # If no configuration is provided, a single job will be setup to delete all
+        # expired events daily.
+        #
+        #retention:
+        #  min_lifetime: 1d
+        #  max_lifetime: 1y
+        #  purge_jobs:
+        #    - min_lifetime: 2d
+        #      max_lifetime: 3d
+        #      interval: 12h
         """ % locals()
 
     def read_arguments(self, args):

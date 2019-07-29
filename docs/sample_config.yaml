@@ -317,6 +317,25 @@ listeners:
 #
 #show_users_in_user_directory: false
 
+# Message retention policy at the server level.
+#
+# Room admins and mods can define a retention period for their rooms using the
+# 'im.vector.room.retention' state event, and server admins can cap this period
+# by setting the 'min_lifetime' and 'max_lifetime' config options.
+#
+# Server admins can also define the settings of the background jobs purging the
+# events which lifetime has expired under the 'purge_jobs' section.
+# If no configuration is provided, a single job will be setup to delete all
+# expired events daily.
+#
+#retention:
+#  min_lifetime: 1d
+#  max_lifetime: 1y
+#  purge_jobs:
+#    - min_lifetime: 2d
+#      max_lifetime: 3d
+#      interval: 12h
+
 
 ## TLS ##
 
