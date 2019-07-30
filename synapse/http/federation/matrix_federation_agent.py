@@ -103,6 +103,9 @@ class MatrixFederationAgent(object):
             # the param is called 'contextFactory', but actually passing a
             # contextfactory is deprecated, and it expects an IPolicyForHTTPS.
             agent_args["contextFactory"] = _well_known_tls_policy
+        else:
+            agent_args["contextFactory"] = tls_client_options_factory
+
         _well_known_agent = RedirectAgent(
             Agent(self._reactor, pool=self._pool, **agent_args)
         )
